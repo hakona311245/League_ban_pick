@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>League Pick HUD</title>
+
+  <style>
+    :root {
+      --bg: #070611;
+      --panel: #12092d;
+      --panel-strong: #1c0a48;
+      --line: rgba(255, 255, 255, 0.24);
+      --text: #f7f3ff;
+      --muted: rgba(247, 243, 255, 0.62);
+      --accent-left: #59d8ff;
+      --accent-right: #ff6bba;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px;
+      display: grid;
+      place-items: center;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 28% 24%, rgba(64, 148, 255, 0.18), transparent 28%),
+        radial-gradient(circle at 74% 35%, rgba(255, 70, 175, 0.14), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    .page-shell {
+      width: 100%;
+      max-width: 1560px;
+      min-width: 0;
+    }
+
+    .status {
+      position: fixed;
+      left: 14px;
+      right: 14px;
+      bottom: 10px;
+      z-index: 3;
+      min-height: 18px;
+      max-width: min(460px, calc(100vw - 28px));
+      margin-left: auto;
+      text-align: right;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.68;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status.error {
+      color: #ff6b6b;
+    }
+
+    .pick-hud {
+      position: relative;
+      width: 100%;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(190px, 260px) minmax(0, 1fr);
+      min-height: 220px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background:
+        linear-gradient(90deg, rgba(9, 11, 29, 0.94), rgba(19, 7, 48, 0.98) 42%, rgba(19, 7, 48, 0.98) 58%, rgba(9, 11, 29, 0.94)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 34%);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
+      isolation: isolate;
+    }
+
+    .pick-hud::before,
+    .pick-hud::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 30%;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .pick-hud::before {
+      left: 0;
+      background: linear-gradient(90deg, rgba(46, 177, 255, 0.12), transparent);
+    }
+
+    .pick-hud::after {
+      right: 0;
+      background: linear-gradient(270deg, rgba(255, 70, 173, 0.14), transparent);
+    }
+
+    .team-side {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      align-items: stretch;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .team-side.left {
+      border-right: 1px solid var(--line);
+    }
+
+    .team-side.right {
+      border-left: 1px solid var(--line);
+    }
+
+    .hero-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-width: 0;
+      min-height: 220px;
+      overflow: hidden;
+      border-right: 1px solid rgba(255, 255, 255, 0.12);
+      background: #111020;
+    }
+
+    .team-side.right .hero-card {
+      border-right: 0;
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .hero-card.empty {
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 42%),
+        rgba(12, 11, 24, 0.96);
+    }
+
+    .hero-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      transform: scale(1.02);
+    }
+
+    .hero-card.empty .hero-image {
+      opacity: 0.16;
+      filter: grayscale(1);
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, transparent 35%, rgba(5, 4, 13, 0.78) 82%, rgba(5, 4, 13, 0.96)),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 24%, transparent 74%, rgba(0, 0, 0, 0.18));
+    }
+
+    .hero-name {
+      position: relative;
+      z-index: 1;
+      min-height: 42px;
+      padding: 10px 8px 12px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--text);
+      font-size: clamp(13px, 1.25vw, 20px);
+      font-weight: 750;
+      line-height: 1.1;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+      overflow-wrap: anywhere;
+    }
+
+    .center-panel {
+      position: relative;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      padding: 22px 20px;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(116, 74, 255, 0.38), transparent 34%),
+        linear-gradient(180deg, #190847, #0f0628);
+      text-align: center;
+    }
+
+    .center-panel::before,
+    .center-panel::after {
+      content: "";
+      position: absolute;
+      left: 18%;
+      right: 18%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.48), transparent);
+    }
+
+    .center-panel::before {
+      top: 20px;
+    }
+
+    .center-panel::after {
+      bottom: 20px;
+    }
+
+    .team-logo {
+      position: relative;
+      z-index: 1;
+      width: min(74px, 100%);
+      max-height: 74px;
+      object-fit: contain;
+      justify-self: center;
+      filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.24));
+    }
+
+    .versus {
+      position: relative;
+      z-index: 1;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        padding: 14px;
+      }
+
+      .pick-hud {
+        grid-template-columns: 1fr;
+      }
+
+      .team-side.left,
+      .team-side.right {
+        border: 0;
+      }
+
+      .team-side.right {
+        order: 3;
+      }
+
+      .center-panel {
+        order: 2;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        min-height: 96px;
+      }
+
+      .hero-card {
+        min-height: 170px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .hero-card {
+        min-height: 128px;
+      }
+
+      .hero-name {
+        min-height: 34px;
+        padding: 7px 4px 8px;
+        font-size: 11px;
+      }
+
+      .center-panel {
+        padding: 18px 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page-shell">
+    <div id="status" class="status">Loading pick data...</div>
+    <div id="app"></div>
+  </main>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwlxNvKm9cGeW76TAXJm_08_IOxqLssOtfp2gjqFWCYdVmnFmb8X38gUO93bR1bYu4BVA/exec";
+    const PLACEHOLDER_HERO_IMAGE = "garen.webp";
+    const PICK_SLOTS = 5;
+
+    let pickState = null;
+
+    function loadPickData() {
+      loadJsonp(API_URL)
+        .then(function(data) {
+          if (!data.ok) {
+            throw new Error(data.message || "Could not read pick data.");
+          }
+
+          pickState = data;
+
+          renderPickData(pickState);
+          setStatus(`Updated: ${pickState.updatedAt || "unknown"}`);
+        })
+        .catch(function(error) {
+          console.error(error);
+          setStatus(error.message, true);
+          renderFallback();
+        });
+    }
+
+    function loadJsonp(url) {
+      return new Promise(function(resolve, reject) {
+        const callbackName = "jsonpCallback_" + Date.now();
+
+        window[callbackName] = function(data) {
+          resolve(data);
+
+          delete window[callbackName];
+          script.remove();
+        };
+
+        const script = document.createElement("script");
+
+        script.src = `${url}?callback=${callbackName}&t=${Date.now()}`;
+
+        script.onerror = function() {
+          reject(new Error("Could not call Apps Script URL."));
+          delete window[callbackName];
+          script.remove();
+        };
+
+        document.body.appendChild(script);
+      });
+    }
+
+    function renderPickData(data) {
+      const teams = Array.isArray(data.teams) ? data.teams : [];
+      const leftTeam = teams[0] || { name: "Team 1", picks: [] };
+      const rightTeam = teams[1] || { name: "Team 2", picks: [] };
+
+      renderHud(leftTeam, rightTeam);
+    }
+
+    function renderFallback() {
+      if (document.getElementById("app").innerHTML.trim()) {
+        return;
+      }
+
+      renderHud(
+        { name: "Team 1", picks: ["Garen"] },
+        { name: "Team 2", picks: ["Garen"] }
+      );
+    }
+
+    function renderHud(leftTeam, rightTeam) {
+      const app = document.getElementById("app");
+
+      app.innerHTML = `
+        <section class="pick-hud" aria-label="League pick HUD">
+          <div class="team-side left">
+            ${renderHeroSlots(leftTeam)}
+          </div>
+
+          <div class="center-panel">
+            <img class="team-logo" src="Teamlogo1.png" alt="${escapeHtml(leftTeam.name || "Team 1")}" />
+            <div class="versus">VS</div>
+            <img class="team-logo" src="t1.webp" alt="${escapeHtml(rightTeam.name || "Team 2")}" />
+          </div>
+
+          <div class="team-side right">
+            ${renderHeroSlots(rightTeam)}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderHeroSlots(team) {
+      const picks = Array.isArray(team.picks) ? team.picks : [];
+      const slots = [];
+
+      for (let index = 0; index < PICK_SLOTS; index++) {
+        const championName = picks[index] || "";
+        const label = championName || "Waiting";
+        const stateClass = championName ? "" : " empty";
+
+        slots.push(`
+          <article class="hero-card${stateClass}">
+            <img class="hero-image" src="${PLACEHOLDER_HERO_IMAGE}" alt="" />
+            <div class="hero-name">${escapeHtml(label)}</div>
+          </article>
+        `);
+      }
+
+      return slots.join("");
+    }
+
+    function setStatus(message, isError = false) {
+      const status = document.getElementById("status");
+
+      status.textContent = message;
+      status.className = isError ? "status error" : "status";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    loadPickData();
+    setInterval(loadPickData, 2000);
+  </script>
+</body>
+</html>
